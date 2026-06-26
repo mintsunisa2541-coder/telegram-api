@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Job Dashboard SaaS</title>
+
+<style>
+body {
+    margin:0;
+    font-family: Inter, Arial;
+    background: linear-gradient(135deg,#0f172a,#020617);
+    color:#fff;
+}
+
+.container {
+    max-width:1100px;
+    margin:auto;
+    padding:30px;
+}
+
+.header {
+    font-size:28px;
+    font-weight:bold;
+    margin-bottom:20px;
+}
+
+.grid {
+    display:grid;
+    grid-template-columns: repeat(3,1fr);
+    gap:15px;
+}
+
+.card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding:20px;
+    border-radius:16px;
+    backdrop-filter: blur(10px);
+}
+
+.card h2 {
+    margin:0;
+    font-size:14px;
+    color:#94a3b8;
+}
+
+.card .num {
+    font-size:36px;
+    font-weight:bold;
+    margin-top:10px;
+    color:#22d3ee;
+}
+
+.statusBox {
+    margin-top:20px;
+    background: rgba(255,255,255,0.05);
+    padding:15px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,0.1);
+    font-size:12px;
+    overflow:auto;
+    max-height:300px;
+}
+
+.badge {
+    display:inline-block;
+    padding:4px 10px;
+    border-radius:999px;
+    font-size:12px;
+    margin-top:10px;
+}
+
+.pending { background:#f59e0b33; color:#fbbf24; }
+.processing { background:#06b6d433; color:#22d3ee; }
+.failed { background:#ef444433; color:#f87171; }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="header">🚀 Job System Dashboard (SaaS)</div>
+
+<div class="grid">
+    <div class="card">
+        <h2>Pending</h2>
+        <div id="pending" class="num">0</div>
+    </div>
+
+    <div class="card">
+        <h2>Processing</h2>
+        <div id="processing" class="num">0</div>
+    </div>
+
+    <div class="card">
+        <h2>Failed</h2>
+        <div id="failed" class="num">0</div>
+    </div>
+</div>
+
+<div class="card" style="margin-top:20px;">
+    <h2>📊 Live Job Status</h2>
+    <div id="status" class="statusBox">Loading...</div>
+</div>
+
+</div>
+
+<script>
+
+async function load() {
+    try {
+        const res = await fetch("http://127.0.0.1:8000/dashboard");
+        const data = await res.json();
+
+        document.getElementById("pending").innerText = data.pending;
+        document.getElementById("processing").innerText = data.processing;
+        document.getElementById("failed").innerText = data.failed;
+
+        document.getElementById("status").innerText =
+            JSON.stringify(data.status, null, 2);
+
+    } catch (e) {
+        document.getElementById("status").innerText =
+            "❌ Cannot connect to API";
+    }
+}
+
+setInterval(load, 2000);
+load();
+
+</script>
+
+</body>
+</html>
