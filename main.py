@@ -82,3 +82,88 @@ def dashboard():
         "failed": len(failed),
         "status": status
     }
+
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+
+app = FastAPI()
+
+# =========================
+# 🌐 HOME DASHBOARD UI
+# =========================
+@app.get("/", response_class=HTMLResponse)
+def dashboard_ui():
+    return """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Job System Dashboard</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: #0f172a;
+            color: white;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            padding: 30px;
+        }
+        .card {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        }
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .btn {
+            padding: 10px 15px;
+            background: #22c55e;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background: #16a34a;
+        }
+        pre {
+            background: #0b1220;
+            padding: 10px;
+            border-radius: 8px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="card">
+        <div class="title">🚀 Telegram Job System Dashboard</div>
+        <p>Real-time system control panel</p>
+    </div>
+
+    <div class="card">
+        <h3>📡 API Status</h3>
+        <button class="btn" onclick="loadStatus()">Check Status</button>
+        <pre id="output">Click button to load...</pre>
+    </div>
+
+</div>
+
+<script>
+async function loadStatus() {
+    const res = await fetch("/dashboard");
+    const data = await res.json();
+    document.getElementById("output").innerText = JSON.stringify(data, null, 2);
+}
+</script>
+
+</body>
+</html>
+"""
