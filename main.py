@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI
 from pydantic import BaseModel
 import redis
@@ -69,101 +70,64 @@ def health():
     except Exception as e:
         return {"status": "error", "detail": str(e)}
 
-@app.get("/dashboard")
-def dashboard():
-    pending = r.lrange("queue:pending", 0, -1)
-    processing = r.lrange("queue:processing", 0, -1)
-    failed = r.lrange("queue:failed", 0, -1)
-    status = r.hgetall("job:status")
-
-    return {
-        "pending": len(pending),
-        "processing": len(processing),
-        "failed": len(failed),
-        "status": status
-    }
-
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import JSONResponse
+import redis
+import os
 
 app = FastAPI()
 
-# =========================
-# 🌐 HOME DASHBOARD UI
-# =========================
-@app.get("/", response_class=HTMLResponse)
-def dashboard_ui():
-    return """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Job System Dashboard</title>
-    <style>
-        body {
-            font-family: Arial;
-            background: #0f172a;
-            color: white;
-            margin: 0;
-            padding: 0;
-        }
-        .container {
-            padding: 30px;
-        }
-        .card {
-            background: #1e293b;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.3);
-        }
-        .title {
-            font-size: 24px;
-            font-weight: bold;
-        }
-        .btn {
-            padding: 10px 15px;
-            background: #22c55e;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            cursor: pointer;
-        }
-        .btn:hover {
-            background: #16a34a;
-        }
-        pre {
-            background: #0b1220;
-            padding: 10px;
-            border-radius: 8px;
-            overflow: auto;
-        }
-    </style>
-</head>
-<body>
+r = redis.Redis.from_url(os.getenv("REDIS_URL"))
 
-<div class="container">
+@app.get("/dashboard")
+def dashboard():
+    status = r.hgetall("job:status")
 
-    <div class="card">
-        <div class="title">🚀 Telegram Job System Dashboard</div>
-        <p>Real-time system control panel</p>
-    </div>
+    # convert bytes → string
+    clean = {k.decode(): v.decode() for k, v in status.items()}
 
-    <div class="card">
-        <h3>📡 API Status</h3>
-        <button class="btn" onclick="loadStatus()">Check Status</button>
-        <pre id="output">Click button to load...</pre>
-    </div>
+    return JSONResponse({
+        "total": len(clean),
+        "status": clean
+    })
 
-</div>
+from fastapi import FastAPI, WebSocket
+import redis
+import json
+import os
 
-<script>
-async function loadStatus() {
-    const res = await fetch("/dashboard");
-    const data = await res.json();
-    document.getElementById("output").innerText = JSON.stringify(data, null, 2);
-}
-</script>
+app = FastAPI()
 
-</body>
-</html>
-"""
+r = redis.Redis.from_url(os.getenv("REDIS_URL"))
+
+# -------------------------
+# 📡 WebSocket connections
+# -------------------------
+clients = []
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    clients.append(websocket)
+
+    try:
+        while True:
+            # ส่งข้อมูลทุก 1 วินาที
+            status = r.hgetall("job:status")
+
+            clean = {
+                k.decode(): v.decode()
+                for k, v in status.items()
+            }
+
+            await websocket.send_text(json.dumps({
+                "pending": len(clean),
+                "processing": 0,
+                "failed": 0,
+                "status": clean
+            }))
+
+            await asyncio.sleep(1)
+
+    except:
+        clients.remove(websocket)

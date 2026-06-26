@@ -1,69 +1,34 @@
 import redis
 import json
 import time
-import traceback
+import os
 
-r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+r = redis.Redis.from_url(os.getenv("REDIS_URL"))
 
-MAX_RETRY = 3
-TIMEOUT = 30  # seconds
-
-print("🚀 ZERO LOSS WORKER STARTED")
+print("🚀 WORKER STARTED")
 
 while True:
     try:
-        # =========================
-        # ATOMIC MOVE (NO LOSS)
-        # =========================
-        raw_job = r.brpoplpush(
-            "queue:pending",
-            "queue:processing",
-            timeout=5
-        )
+        job = r.brpoplpush("queue:pending", "queue:processing")
+        job = json.loads(job)
 
-        if not raw_job:
-            continue
-
-        job = json.loads(raw_job)
         job_id = job["id"]
+        print("📦 Processing:", job_id)
 
-        # mark start time
-        r.hset("job:heartbeat", job_id, time.time())
+        # 👉 SET STATUS = processing (REALTIME)
         r.hset("job:status", job_id, "processing")
 
-        print(f"📦 Processing {job_id}")
+        # simulate work
+        time.sleep(2)
 
-        # =========================
-        # SIMULATE WORK
-        # =========================
-        if job["type"] == "post":
-            print("📤", job["payload"]["text"])
-            time.sleep(2)
-
-        # =========================
-        # SUCCESS
-        # =========================
+        # 👉 DONE
         r.hset("job:status", job_id, "done")
-        r.lrem("queue:processing", 1, raw_job)
 
-        print(f"✅ DONE {job_id}")
+        # remove from processing
+        r.lrem("queue:processing", 1, json.dumps(job))
+
+        print("✅ DONE:", job_id)
 
     except Exception as e:
         print("❌ ERROR:", e)
-        traceback.print_exc()
-
-        try:
-            job["retry"] += 1
-
-            if job["retry"] <= MAX_RETRY:
-                print(f"🔁 RETRY {job_id}")
-                r.lpush("queue:pending", json.dumps(job))
-                r.hset("job:status", job_id, f"retry:{job['retry']}")
-
-            else:
-                print(f"💀 DEAD LETTER {job_id}")
-                r.lpush("queue:failed", json.dumps(job))
-                r.hset("job:status", job_id, "failed")
-
-        except:
-            pass
+        time.sleep(2)
